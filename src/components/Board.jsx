@@ -1,0 +1,245 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
+import { COLUMNS, COLUMN_IDS } from "@/config/columns";
+import { Column } from "./Column";
+import { TaskCardView } from "./TaskCard";
+import { TaskModal } from "./TaskModal";
+import { Toast } from "./Toast";
+
+export function Board() {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [activeId, setActiveId] = useState(null);
+  const [modal, setModal] = useState(null); // { mode, initial?, defaultStatus? }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/tasks");
+        if (!res.ok) throw new Error("Failed to load tasks");
+        setTasks(await res.json());
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // tasks grouped by column, each sorted by order
+  const grouped = useMemo(() => {
+    const map = Object.fromEntries(COLUMN_IDS.map((id) => [id, []]));
+    for (const t of tasks) {
+      if (map[t.status]) map[t.status].push(t);
+    }
+    for (const id of COLUMN_IDS) {
+      map[id].sort((a, b) => a.order - b.order);
+    }
+    return map;
+  }, [tasks]);
+
+  const activeTask = activeId
+    ? tasks.find((t) => t.id === activeId)
+    : null;
+
+  // ---- CRUD ----------------------------------------------------------------
+
+  async function createTask(payload) {
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, status: modal.defaultStatus }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Create failed");
+      const created = await res.json();
+      setTasks((prev) => [...prev, created]);
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }
+
+  async function updateTask(id, patch) {
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Update failed");
+      const updated = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }
+
+  async function deleteTask(id) {
+    try {
+      const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error || "Delete failed");
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }
+
+  // ---- Drag & drop ---------------------------------------------------------
+
+  function findColumnOf(id) {
+    if (COLUMN_IDS.includes(id)) return id; // dropped on empty column
+    const task = tasks.find((t) => t.id === id);
+    return task ? task.status : null;
+  }
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    setActiveId(null);
+    if (!over) return;
+
+    const activeCol = findColumnOf(active.id);
+    const overCol = findColumnOf(over.id);
+    if (!activeCol || !overCol) return;
+
+    // Build the target column's ordered id list after the move.
+    const activeItems = grouped[activeCol].map((t) => t.id);
+    const overItems = grouped[overCol].map((t) => t.id);
+
+    const oldIndex = activeItems.indexOf(active.id);
+    let newIndex;
+    if (activeCol === overCol) {
+      newIndex = overItems.indexOf(over.id);
+      if (newIndex === -1) newIndex = overItems.length - 1;
+      if (oldIndex === newIndex) return;
+    } else {
+      const overIdx = overItems.indexOf(over.id);
+      newIndex = overIdx === -1 ? overItems.length : overIdx;
+    }
+
+    // Compute the new ordering for the target column.
+    let targetIds;
+    if (activeCol === overCol) {
+      targetIds = arrayMove(overItems, oldIndex, newIndex);
+    } else {
+      targetIds = [...overItems];
+      targetIds.splice(newIndex, 0, active.id);
+    }
+
+    const prevTasks = tasks; // snapshot for rollback
+
+    // Optimistic local update: set status on the moved card and reindex column.
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id === active.id) {
+          return { ...t, status: overCol, order: targetIds.indexOf(t.id) };
+        }
+        if (t.status === overCol) {
+          const idx = targetIds.indexOf(t.id);
+          if (idx !== -1) return { ...t, order: idx };
+        }
+        return t;
+      })
+    );
+
+    // Persist: the moved card (status + order) plus any card whose order changed.
+    persistColumn(overCol, targetIds, active.id, prevTasks);
+  }
+
+  async function persistColumn(colId, orderedIds, movedId, prevTasks) {
+    try {
+      await Promise.all(
+        orderedIds.map((id, index) => {
+          const patch = { order: index };
+          if (id === movedId) patch.status = colId;
+          return fetch(`/api/tasks/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(patch),
+          }).then((r) => {
+            if (!r.ok) throw new Error("Move failed to save");
+          });
+        })
+      );
+    } catch (e) {
+      setError(e.message + " — reverting");
+      setTasks(prevTasks); // rollback to pre-drag state
+    }
+  }
+
+  // ---- Render --------------------------------------------------------------
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={(e) => setActiveId(e.active.id)}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveId(null)}
+      >
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {COLUMNS.map((col) => (
+            <Column
+              key={col.id}
+              column={col}
+              tasks={grouped[col.id]}
+              onAdd={(status) => setModal({ mode: "create", defaultStatus: status })}
+              onCardClick={(task) => setModal({ mode: "edit", initial: task })}
+            />
+          ))}
+        </div>
+
+        <DragOverlay>
+          {activeTask ? (
+            <div className="rotate-2">
+              <TaskCardView task={activeTask} dragging />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {loading ? (
+        <p className="pt-6 text-center text-sm text-slate-500">Loading…</p>
+      ) : null}
+
+      {modal ? (
+        <TaskModal
+          mode={modal.mode}
+          initial={modal.initial}
+          onSave={(payload) =>
+            modal.mode === "edit"
+              ? updateTask(modal.initial.id, payload)
+              : createTask(payload)
+          }
+          onDelete={deleteTask}
+          onClose={() => setModal(null)}
+        />
+      ) : null}
+
+      <Toast message={error} onClose={() => setError("")} />
+    </div>
+  );
+}
