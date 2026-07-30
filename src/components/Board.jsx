@@ -59,6 +59,50 @@ export function Board() {
     ? tasks.find((t) => t.id === activeId)
     : null;
 
+  // ---- Modal + deep-linking (?task=<id>) -----------------------------------
+
+  function openTask(task) {
+    setModal({ mode: "edit", initial: task });
+    if (typeof window !== "undefined") {
+      window.history.pushState({}, "", `?task=${task.id}`);
+    }
+  }
+
+  function openCreate(status) {
+    setModal({ mode: "create", defaultStatus: status });
+  }
+
+  function closeModal() {
+    setModal(null);
+    if (typeof window !== "undefined" && window.location.search) {
+      window.history.pushState({}, "", window.location.pathname);
+    }
+  }
+
+  // Open the task named in the URL once tasks have loaded (shared link support).
+  const [deepLinked, setDeepLinked] = useState(false);
+  useEffect(() => {
+    if (loading || deepLinked) return;
+    const id = new URLSearchParams(window.location.search).get("task");
+    if (id) {
+      const t = tasks.find((x) => x.id === id);
+      if (t) setModal({ mode: "edit", initial: t });
+      else setError("That task link wasn't found — it may have been deleted.");
+    }
+    setDeepLinked(true);
+  }, [loading, deepLinked, tasks]);
+
+  // Keep the modal in sync with browser back/forward.
+  useEffect(() => {
+    function onPop() {
+      const id = new URLSearchParams(window.location.search).get("task");
+      const t = id ? tasks.find((x) => x.id === id) : null;
+      setModal(t ? { mode: "edit", initial: t } : null);
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [tasks]);
+
   // ---- CRUD ----------------------------------------------------------------
 
   async function createTask(payload) {
@@ -247,8 +291,8 @@ export function Board() {
               key={col.id}
               column={col}
               tasks={grouped[col.id]}
-              onAdd={(status) => setModal({ mode: "create", defaultStatus: status })}
-              onCardClick={(task) => setModal({ mode: "edit", initial: task })}
+              onAdd={openCreate}
+              onCardClick={openTask}
             />
           ))}
         </div>
@@ -278,7 +322,7 @@ export function Board() {
           onDelete={deleteTask}
           onAddComment={addComment}
           onDeleteComment={deleteComment}
-          onClose={() => setModal(null)}
+          onClose={closeModal}
         />
       ) : null}
 

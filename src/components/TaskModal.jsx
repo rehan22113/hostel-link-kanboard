@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Trash2, Send, User } from "lucide-react";
+import { X, Trash2, Send, User, Link2, Check } from "lucide-react";
 import { MEMBERS } from "@/config/members";
 import { timeAgo } from "@/lib/date";
 
@@ -18,6 +18,18 @@ export function TaskModal({
 }) {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function copyLink() {
+    try {
+      const url = `${window.location.origin}${window.location.pathname}?task=${initial.id}`;
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard blocked (e.g. non-HTTPS) — the URL bar already reflects the task
+    }
+  }
 
   useEffect(() => {
     if (mode === "edit" && initial) {
@@ -77,13 +89,27 @@ export function TaskModal({
           <h2 className="text-base font-semibold text-slate-100">
             {mode === "edit" ? "Edit task" : "New task"}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            {mode === "edit" ? (
+              <button
+                type="button"
+                onClick={copyLink}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-700/60 hover:text-white"
+                aria-label="Copy task link"
+                title="Copy link to this task"
+              >
+                {copied ? <Check size={14} /> : <Link2 size={14} />}
+                {copied ? "Copied" : "Copy link"}
+              </button>
+            ) : null}
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-white"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
