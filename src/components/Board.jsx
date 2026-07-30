@@ -107,6 +107,47 @@ export function Board() {
     }
   }
 
+  // Replace a task everywhere it's held (list + the open modal, if it's this task).
+  function syncTask(updated) {
+    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    setModal((m) =>
+      m && m.initial && m.initial.id === updated.id
+        ? { ...m, initial: updated }
+        : m
+    );
+  }
+
+  async function addComment(id, payload) {
+    try {
+      const res = await fetch(`/api/tasks/${id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Comment failed");
+      syncTask(await res.json());
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }
+
+  async function deleteComment(id, commentId) {
+    try {
+      const res = await fetch(`/api/tasks/${id}/comments/${commentId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok)
+        throw new Error((await res.json()).error || "Delete comment failed");
+      syncTask(await res.json());
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  }
+
   // ---- Drag & drop ---------------------------------------------------------
 
   function findColumnOf(id) {
@@ -235,6 +276,8 @@ export function Board() {
               : createTask(payload)
           }
           onDelete={deleteTask}
+          onAddComment={addComment}
+          onDeleteComment={deleteComment}
           onClose={() => setModal(null)}
         />
       ) : null}

@@ -52,6 +52,7 @@ export async function POST(request) {
       deadline: body.deadline || null,
       status,
       order,
+      comments: [],
       createdAt: now,
       updatedAt: now,
     };
