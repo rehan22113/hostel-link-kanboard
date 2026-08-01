@@ -7,6 +7,31 @@ import { timeAgo } from "@/lib/date";
 
 const empty = { title: "", description: "", assignee: "", deadline: "" };
 
+// Distinct comment colors per member so each person's replies are easy to tell apart.
+const COMMENT_COLORS = [
+  { bg: "bg-indigo-500/10", border: "border-indigo-500/40", name: "text-indigo-300" },
+  { bg: "bg-emerald-500/10", border: "border-emerald-500/40", name: "text-emerald-300" },
+  { bg: "bg-pink-500/10", border: "border-pink-500/40", name: "text-pink-300" },
+  { bg: "bg-amber-500/10", border: "border-amber-500/40", name: "text-amber-300" },
+  { bg: "bg-sky-500/10", border: "border-sky-500/40", name: "text-sky-300" },
+  { bg: "bg-violet-500/10", border: "border-violet-500/40", name: "text-violet-300" },
+];
+const NEUTRAL_COLOR = {
+  bg: "bg-kanban-bg/60",
+  border: "border-kanban-line",
+  name: "text-slate-200",
+};
+
+function colorForAuthor(author) {
+  const idx = MEMBERS.indexOf(author);
+  if (idx >= 0) return COMMENT_COLORS[idx % COMMENT_COLORS.length];
+  if (!author) return NEUTRAL_COLOR;
+  // Deterministic fallback for authors not in the member list.
+  let hash = 0;
+  for (let i = 0; i < author.length; i++) hash = (hash * 31 + author.charCodeAt(i)) >>> 0;
+  return COMMENT_COLORS[hash % COMMENT_COLORS.length];
+}
+
 export function TaskModal({
   mode,
   initial,
@@ -250,13 +275,15 @@ function Comments({ comments, onAdd, onDelete }) {
         {sorted.length === 0 ? (
           <p className="text-xs text-slate-600">No comments yet.</p>
         ) : (
-          sorted.map((c) => (
+          sorted.map((c) => {
+            const color = colorForAuthor(c.author);
+            return (
             <div
               key={c.id}
-              className="group rounded-lg border border-kanban-line bg-kanban-bg/60 p-2.5"
+              className={`group rounded-lg border p-2.5 ${color.bg} ${color.border}`}
             >
               <div className="mb-1 flex items-center justify-between">
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-200">
+                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${color.name}`}>
                   <User size={11} />
                   {c.author}
                   <span className="ml-1 font-normal text-slate-500">
@@ -276,7 +303,8 @@ function Comments({ comments, onAdd, onDelete }) {
                 {c.text}
               </p>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 
