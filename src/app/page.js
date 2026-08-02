@@ -9,7 +9,7 @@ export default function Page() {
             HostelLink <span className="text-kanban-accent">Kanban</span>
           </h1>
           <p className="text-xs text-slate-500">
-            Dev team board · Backlog → Pending → QA → UAT
+            Dev team board · Backlog → Pending → QA → UAT → Done
           </p>
         </div>
       </header>

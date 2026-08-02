@@ -5,6 +5,7 @@ export const COLUMNS = [
   { id: "pending", title: "Pending" },
   { id: "qa", title: "QA" },
   { id: "uat", title: "UAT" },
+  { id: "done", title: "Done" },
 ];
 
 export const COLUMN_IDS = COLUMNS.map((c) => c.id);
