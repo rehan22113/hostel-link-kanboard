@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Lock, LogOut } from "lucide-react";
+import { Lock, LogOut, BarChart3 } from "lucide-react";
 import { Board } from "./Board";
 
 const STORAGE_KEY = "kanban:member";
@@ -12,6 +12,7 @@ const STORAGE_KEY = "kanban:member";
 export function PinGate() {
   const [member, setMember] = useState(null);
   const [ready, setReady] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   // Restore an existing session on mount (client-only; avoids an SSR mismatch).
   useEffect(() => {
@@ -66,6 +67,15 @@ export function PinGate() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSummaryOpen(true)}
+            className="inline-flex items-center gap-1 rounded-md border border-kanban-line px-2 py-1 text-xs text-slate-300 hover:bg-slate-700/60 hover:text-white"
+            aria-label="Team summary"
+            title="Team summary"
+          >
+            <BarChart3 size={13} />
+            Summary
+          </button>
           <span className="text-xs text-slate-400">
             Signed in as{" "}
             <span className="font-semibold text-slate-200">{member}</span>
@@ -83,7 +93,11 @@ export function PinGate() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4">
-        <Board currentMember={member} />
+        <Board
+          currentMember={member}
+          summaryOpen={summaryOpen}
+          onCloseSummary={() => setSummaryOpen(false)}
+        />
       </div>
     </main>
   );

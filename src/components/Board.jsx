@@ -15,9 +15,10 @@ import { COLUMNS, COLUMN_IDS } from "@/config/columns";
 import { Column } from "./Column";
 import { TaskCardView } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
+import { SummaryModal } from "./SummaryModal";
 import { Toast } from "./Toast";
 
-export function Board({ currentMember }) {
+export function Board({ currentMember, summaryOpen, onCloseSummary }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -340,6 +341,10 @@ export function Board({ currentMember }) {
           onClose={closeModal}
           currentMember={currentMember}
         />
+      ) : null}
+
+      {summaryOpen ? (
+        <SummaryModal tasks={tasks} onClose={onCloseSummary} />
       ) : null}
 
       <Toast message={error} onClose={() => setError("")} />
