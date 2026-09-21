@@ -259,7 +259,7 @@ export function Board({ currentMember }) {
 
   async function persistColumn(colId, orderedIds, movedId, prevTasks) {
     try {
-      await Promise.all(
+      const saved = await Promise.all(
         orderedIds.map((id, index) => {
           const patch = { order: index };
           // The moved card also gets its new column; `by` lets the server
@@ -273,11 +273,16 @@ export function Board({ currentMember }) {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(patch),
-          }).then((r) => {
+          }).then(async (r) => {
             if (!r.ok) throw new Error("Move failed to save");
+            return r.json();
           });
         })
       );
+      // Reconcile the moved card with the server's response so its freshly
+      // appended history entry shows up locally (and in an open modal).
+      const moved = saved.find((d) => d && d.id === movedId);
+      if (moved) syncTask(moved);
     } catch (e) {
       setError(e.message + " — reverting");
       setTasks(prevTasks); // rollback to pre-drag state
