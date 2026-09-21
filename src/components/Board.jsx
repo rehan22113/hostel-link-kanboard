@@ -300,7 +300,7 @@ export function Board({ currentMember }) {
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        <div className="scroll-thin grid min-h-0 flex-1 grid-cols-1 items-start gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:overflow-visible">
+        <div className="scroll-thin flex min-h-0 flex-1 gap-4 overflow-x-auto overflow-y-hidden pb-1 lg:grid lg:grid-cols-3 lg:items-start lg:overflow-visible lg:pb-0 xl:grid-cols-5">
           {COLUMNS.map((col) => (
             <Column
               key={col.id}

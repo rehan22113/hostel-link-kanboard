@@ -9,7 +9,7 @@ export function Column({ column, tasks, onAdd, onCardClick }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
-    <div className="flex min-h-0 flex-col rounded-xl bg-kanban-col/60">
+    <div className="flex h-full min-h-0 w-[80vw] shrink-0 flex-col rounded-xl bg-kanban-col/60 sm:w-72 lg:h-auto lg:w-auto">
       <div className="flex items-center justify-between px-3 pb-2 pt-3">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
@@ -30,7 +30,7 @@ export function Column({ column, tasks, onAdd, onCardClick }) {
 
       <div
         ref={setNodeRef}
-        className={`scroll-thin min-h-16 space-y-2.5 overflow-y-auto rounded-lg px-2.5 pb-3 transition-colors xl:max-h-[calc(100vh-11rem)] ${
+        className={`scroll-thin min-h-16 flex-1 space-y-2.5 overflow-y-auto rounded-lg px-2.5 pb-3 transition-colors lg:max-h-[calc(100vh-11rem)] lg:flex-none ${
           isOver ? "bg-kanban-accent/5" : ""
         }`}
       >
