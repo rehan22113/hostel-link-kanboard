@@ -53,6 +53,10 @@ export async function POST(request) {
       status,
       order,
       comments: [],
+      // Seed the move history with the card's creation.
+      history: [
+        { from: null, to: status, at: now, by: body.by || "" },
+      ],
       createdAt: now,
       updatedAt: now,
     };

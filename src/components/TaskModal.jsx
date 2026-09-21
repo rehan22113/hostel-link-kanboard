@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Trash2, Send, User, Link2, Check } from "lucide-react";
+import { X, Trash2, Send, User, Link2, Check, ArrowRight } from "lucide-react";
 import { MEMBERS } from "@/config/members";
+import { COLUMNS } from "@/config/columns";
 import { timeAgo } from "@/lib/date";
+
+// Column id → human title, for rendering move history ("Backlog → Pending").
+const COLUMN_TITLE = Object.fromEntries(COLUMNS.map((c) => [c.id, c.title]));
+const titleFor = (id) => COLUMN_TITLE[id] || id;
 
 const empty = { title: "", description: "", assignee: "", deadline: "" };
 
@@ -40,6 +45,7 @@ export function TaskModal({
   onAddComment,
   onDeleteComment,
   onClose,
+  currentMember,
 }) {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
@@ -220,11 +226,15 @@ export function TaskModal({
         </form>
 
         {mode === "edit" && initial ? (
-          <Comments
-            comments={initial.comments || []}
-            onAdd={(payload) => onAddComment(initial.id, payload)}
-            onDelete={(commentId) => onDeleteComment(initial.id, commentId)}
-          />
+          <>
+            <Comments
+              comments={initial.comments || []}
+              currentMember={currentMember}
+              onAdd={(payload) => onAddComment(initial.id, payload)}
+              onDelete={(commentId) => onDeleteComment(initial.id, commentId)}
+            />
+            <History history={initial.history || []} />
+          </>
         ) : null}
       </div>
 
@@ -247,16 +257,15 @@ export function TaskModal({
   );
 }
 
-function Comments({ comments, onAdd, onDelete }) {
+function Comments({ comments, currentMember, onAdd, onDelete }) {
   const [text, setText] = useState("");
-  const [author, setAuthor] = useState(MEMBERS[0] || "");
   const [busy, setBusy] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
-    if (!text.trim() || !author || busy) return;
+    if (!text.trim() || !currentMember || busy) return;
     setBusy(true);
-    const ok = await onAdd({ author, text: text.trim() });
+    const ok = await onAdd({ author: currentMember, text: text.trim() });
     setBusy(false);
     if (ok) setText("");
   }
@@ -309,19 +318,10 @@ function Comments({ comments, onAdd, onDelete }) {
       </div>
 
       <form onSubmit={submit} className="space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-500">Reply as</span>
-          <select
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            className="input !w-auto !py-1 text-xs"
-          >
-            {MEMBERS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center gap-1 text-[11px] text-slate-500">
+          <User size={11} />
+          Commenting as{" "}
+          <span className="font-semibold text-slate-300">{currentMember}</span>
         </div>
         <div className="flex items-end gap-2">
           <textarea
@@ -344,6 +344,60 @@ function Comments({ comments, onAdd, onDelete }) {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function History({ history }) {
+  // Newest move first.
+  const entries = [...(history || [])].slice().reverse();
+
+  return (
+    <div className="mt-5 border-t border-kanban-line pt-4">
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        Activity{entries.length ? ` (${entries.length})` : ""}
+      </h3>
+
+      {entries.length === 0 ? (
+        <p className="text-xs text-slate-600">No moves yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {entries.map((h, i) => (
+            <li
+              key={i}
+              className="flex items-start gap-2 text-xs leading-relaxed text-slate-300"
+            >
+              <ArrowRight
+                size={13}
+                className="mt-0.5 shrink-0 text-slate-500"
+              />
+              <span>
+                {h.from ? (
+                  <>
+                    <span className="text-slate-400">{titleFor(h.from)}</span>
+                    {" → "}
+                    <span className="font-medium text-slate-200">
+                      {titleFor(h.to)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Created in{" "}
+                    <span className="font-medium text-slate-200">
+                      {titleFor(h.to)}
+                    </span>
+                  </>
+                )}
+                <span className="text-slate-500">
+                  {" · "}
+                  {timeAgo(h.at)}
+                  {h.by ? ` · by ${h.by}` : ""}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

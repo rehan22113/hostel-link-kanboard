@@ -30,7 +30,7 @@ export function Column({ column, tasks, onAdd, onCardClick }) {
 
       <div
         ref={setNodeRef}
-        className={`scroll-thin max-h-[calc(100vh-11rem)] min-h-16 space-y-2.5 overflow-y-auto rounded-lg px-2.5 pb-3 transition-colors ${
+        className={`scroll-thin min-h-16 space-y-2.5 overflow-y-auto rounded-lg px-2.5 pb-3 transition-colors xl:max-h-[calc(100vh-11rem)] ${
           isOver ? "bg-kanban-accent/5" : ""
         }`}
       >

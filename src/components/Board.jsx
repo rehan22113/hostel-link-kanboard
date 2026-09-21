@@ -17,7 +17,7 @@ import { TaskCardView } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
 import { Toast } from "./Toast";
 
-export function Board() {
+export function Board({ currentMember }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -110,7 +110,11 @@ export function Board() {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, status: modal.defaultStatus }),
+        body: JSON.stringify({
+          ...payload,
+          status: modal.defaultStatus,
+          by: currentMember,
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Create failed");
       const created = await res.json();
@@ -258,7 +262,13 @@ export function Board() {
       await Promise.all(
         orderedIds.map((id, index) => {
           const patch = { order: index };
-          if (id === movedId) patch.status = colId;
+          // The moved card also gets its new column; `by` lets the server
+          // attribute the move in the card's history (ignored if the status
+          // is unchanged, e.g. a same-column reorder).
+          if (id === movedId) {
+            patch.status = colId;
+            patch.by = currentMember;
+          }
           return fetch(`/api/tasks/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -285,7 +295,7 @@ export function Board() {
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        <div className="grid min-h-0 flex-1 grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="scroll-thin grid min-h-0 flex-1 grid-cols-1 items-start gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:overflow-visible">
           {COLUMNS.map((col) => (
             <Column
               key={col.id}
@@ -323,6 +333,7 @@ export function Board() {
           onAddComment={addComment}
           onDeleteComment={deleteComment}
           onClose={closeModal}
+          currentMember={currentMember}
         />
       ) : null}
 

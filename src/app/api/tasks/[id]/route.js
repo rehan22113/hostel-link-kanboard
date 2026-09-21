@@ -51,11 +51,32 @@ export async function PATCH(request, { params }) {
     update.updatedAt = new Date().toISOString();
 
     const tasks = await getTasks();
-    const doc = await tasks.findOneAndUpdate(
-      { _id },
-      { $set: update },
-      { returnDocument: "after" }
-    );
+
+    // If the card is changing columns, append a move-history entry recording
+    // where it went and who moved it. `body.by` is informational only — it is
+    // never written to the task itself, just into the history entry.
+    let historyPush = null;
+    if (update.status !== undefined) {
+      const current = await tasks.findOne(
+        { _id },
+        { projection: { status: 1 } }
+      );
+      if (current && current.status !== update.status) {
+        historyPush = {
+          from: current.status,
+          to: update.status,
+          at: update.updatedAt,
+          by: typeof body.by === "string" ? body.by : "",
+        };
+      }
+    }
+
+    const mongoUpdate = { $set: update };
+    if (historyPush) mongoUpdate.$push = { history: historyPush };
+
+    const doc = await tasks.findOneAndUpdate({ _id }, mongoUpdate, {
+      returnDocument: "after",
+    });
 
     if (!doc) {
       return NextResponse.json({ error: "Task not found." }, { status: 404 });
