@@ -50,6 +50,8 @@ export async function POST(request) {
       description: (body.description || "").trim(),
       assignee: body.assignee || "",
       deadline: body.deadline || null,
+      // Extended due date, set only after the original deadline has passed.
+      nextDeadline: body.nextDeadline || null,
       status,
       order,
       comments: [],

@@ -4,13 +4,19 @@ import { useEffect, useState } from "react";
 import { X, Trash2, Send, User, Link2, Check, ArrowRight } from "lucide-react";
 import { MEMBERS } from "@/config/members";
 import { COLUMNS } from "@/config/columns";
-import { timeAgo } from "@/lib/date";
+import { timeAgo, isOverdue, formatDeadline } from "@/lib/date";
 
 // Column id → human title, for rendering move history ("Backlog → Pending").
 const COLUMN_TITLE = Object.fromEntries(COLUMNS.map((c) => [c.id, c.title]));
 const titleFor = (id) => COLUMN_TITLE[id] || id;
 
-const empty = { title: "", description: "", assignee: "", deadline: "" };
+const empty = {
+  title: "",
+  description: "",
+  assignee: "",
+  deadline: "",
+  nextDeadline: "",
+};
 
 // Distinct comment colors per member so each person's replies are easy to tell apart.
 const COMMENT_COLORS = [
@@ -69,6 +75,9 @@ export function TaskModal({
         description: initial.description || "",
         assignee: initial.assignee || "",
         deadline: initial.deadline ? initial.deadline.slice(0, 10) : "",
+        nextDeadline: initial.nextDeadline
+          ? initial.nextDeadline.slice(0, 10)
+          : "",
       });
     } else {
       setForm(empty);
@@ -85,16 +94,28 @@ export function TaskModal({
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
+  // Once the original deadline has passed, it is locked: the user can only set
+  // a new "next due date" and never change the actual deadline.
+  const overdue = mode === "edit" && initial ? isOverdue(initial.deadline) : false;
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.title.trim() || saving) return;
     setSaving(true);
-    const ok = await onSave({
+
+    const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
       assignee: form.assignee,
-      deadline: form.deadline || null,
-    });
+    };
+    if (overdue) {
+      // Keep the original deadline untouched; only the next date can change.
+      payload.nextDeadline = form.nextDeadline || null;
+    } else {
+      payload.deadline = form.deadline || null;
+    }
+
+    const ok = await onSave(payload);
     setSaving(false);
     if (ok) onClose();
   }
@@ -181,15 +202,36 @@ export function TaskModal({
               </select>
             </Field>
 
-            <Field label="Deadline">
+            <Field label={overdue ? "Deadline (locked)" : "Deadline"}>
               <input
                 type="date"
                 value={form.deadline}
                 onChange={set("deadline")}
-                className="input"
+                className="input disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={overdue}
+                title={
+                  overdue
+                    ? "The original due date has passed and can't be changed."
+                    : undefined
+                }
               />
             </Field>
           </div>
+
+          {overdue ? (
+            <Field label="Next due date">
+              <input
+                type="date"
+                value={form.nextDeadline}
+                onChange={set("nextDeadline")}
+                className="input"
+              />
+              <span className="mt-1 block text-[11px] text-slate-500">
+                Original deadline ({formatDeadline(initial.deadline)}) has
+                passed — set a new target date. The original stays on record.
+              </span>
+            </Field>
+          ) : null}
 
           <div className="flex items-center justify-between pt-2">
             {mode === "edit" ? (

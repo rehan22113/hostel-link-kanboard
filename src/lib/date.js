@@ -8,6 +8,12 @@ export function isOverdue(deadline) {
   return due < today;
 }
 
+// The date a task is actually working toward: the extended "next" date once set,
+// otherwise the original deadline. The original deadline is never overwritten.
+export function effectiveDeadline(deadline, nextDeadline) {
+  return nextDeadline || deadline || null;
+}
+
 // Short human label like "Jul 30".
 export function formatDeadline(deadline) {
   if (!deadline) return null;

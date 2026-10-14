@@ -40,6 +40,8 @@ export async function PATCH(request, { params }) {
       update.description = (body.description || "").trim();
     if (body.assignee !== undefined) update.assignee = body.assignee || "";
     if (body.deadline !== undefined) update.deadline = body.deadline || null;
+    if (body.nextDeadline !== undefined)
+      update.nextDeadline = body.nextDeadline || null;
     if (body.status !== undefined) {
       if (!COLUMN_IDS.includes(body.status)) {
         return NextResponse.json({ error: "Invalid status." }, { status: 400 });

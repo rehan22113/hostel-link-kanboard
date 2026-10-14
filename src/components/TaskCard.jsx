@@ -3,12 +3,15 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CalendarClock, User } from "lucide-react";
-import { isOverdue, formatDeadline } from "@/lib/date";
+import { isOverdue, formatDeadline, effectiveDeadline } from "@/lib/date";
 
 // Presentational card — no drag hooks. Reused by the drag overlay.
 export function TaskCardView({ task, dragging }) {
-  const overdue = task.status !== "uat" && isOverdue(task.deadline);
-  const deadlineLabel = formatDeadline(task.deadline);
+  // After an extension, the task works toward nextDeadline; the original
+  // deadline stays on record but no longer drives the overdue state.
+  const effective = effectiveDeadline(task.deadline, task.nextDeadline);
+  const overdue = task.status !== "uat" && isOverdue(effective);
+  const extended = Boolean(task.nextDeadline && task.deadline);
 
   return (
     <div
@@ -36,14 +39,24 @@ export function TaskCardView({ task, dragging }) {
           <span className="text-[11px] text-slate-500">Unassigned</span>
         )}
 
-        {deadlineLabel ? (
+        {task.deadline ? (
           <span
             className={`inline-flex items-center gap-1 text-[11px] font-medium ${
               overdue ? "text-red-400" : "text-slate-400"
             }`}
           >
             <CalendarClock size={11} />
-            {deadlineLabel}
+            {extended ? (
+              <>
+                <span className="text-slate-600 line-through">
+                  {formatDeadline(task.deadline)}
+                </span>
+                <span className="text-slate-500">→</span>
+                {formatDeadline(task.nextDeadline)}
+              </>
+            ) : (
+              formatDeadline(task.deadline)
+            )}
           </span>
         ) : null}
       </div>
